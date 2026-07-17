@@ -1,11 +1,9 @@
 <?php
-// api.php — Sehemu zote za mantiki zilizokuwa kwenye localStorage sasa
-// zimehamishiwa hapa. Kila ombi (request) huzungumza na MySQL kupitia PDO.
+// api.php — Mfumo wa Wallet Halisi (Live Balances) wenye MySQL na PDO.
+// Toleo la Uzalishaji (Production-Ready) — Ulinzi thabiti wa Bajeti na Salio.
 
 declare(strict_types=1);
 require __DIR__ . '/bootstrap.php';
-// bootstrap.php tayari imefungua $pdo (MySQL, kwa kutumia config.php yako
-// ya InfinityFree), imeanzisha session, na imeweka Content-Type header.
 
 $rawBody = file_get_contents('php://input');
 $input = json_decode($rawBody ?: '{}', true);
@@ -43,9 +41,9 @@ function userPublic(array $row): array
         'id' => (int) $row['id'],
         'username' => $row['username'],
         'jina' => $row['jina'],
-        'salioAwali' => (float) $row['salio_awali'],
+        'salioKuu' => (float) $row['salio_awali'], 
         'bajetiMwezi' => (float) $row['bajeti_mwezi'],
-        'bajetiAllocated' => (float) $row['bajeti_allocated'],
+        'bajetiIliyobaki' => (float) $row['bajeti_allocated'], 
     ];
 }
 
@@ -61,8 +59,8 @@ function fetchTransactions(PDO $pdo, int $userId): array
             'category' => $r['category'],
             'note' => $r['note'],
             'date' => $r['date'],
-            'createdAt' => (int) $r['created_at'],
-            'updatedAt' => $r['updated_at'] !== null ? (int) $r['updated_at'] : null,
+            'createdAt' => strtotime($r['created_at']) * 1000,
+            'updatedAt' => $r['updated_at'] !== null ? strtotime($r['updated_at']) * 1000 : null,
         ];
     }, $stmt->fetchAll(PDO::FETCH_ASSOC));
 }
@@ -79,7 +77,7 @@ function fetchDeleted(PDO $pdo, int $userId): array
             'category' => $r['category'],
             'note' => $r['note'],
             'date' => $r['date'],
-            'deletedAt' => (int) $r['deleted_at'],
+            'deletedAt' => strtotime($r['deleted_at']) * 1000,
         ];
     }, $stmt->fetchAll(PDO::FETCH_ASSOC));
 }
@@ -124,11 +122,9 @@ function computeStats(array $userRow, array $transactions): array
         if ($t['type'] === 'hasara' && $inWindow) $lossMonth += $t['amount'];
     }
 
-    $allocated = (float) ($userRow['bajeti_allocated'] ?: $userRow['bajeti_mwezi']);
-    $budgetUsed = min($allocated, max(0.0, $expenseMonth));
-    $budgetRemaining = max(0.0, $allocated - $budgetUsed);
-    $outOfBudgetExpense = max(0.0, $expenseMonth - $budgetUsed);
-    $balance = (float) $userRow['salio_awali'] + $incomeMonth - $lossMonth - $outOfBudgetExpense;
+    $balance = (float) $userRow['salio_awali'];
+    $budgetRemaining = (float) $userRow['bajeti_allocated'];
+    $allocatedBudget = (float) $userRow['bajeti_mwezi'];
 
     $months = [];
     foreach ($transactions as $t) {
@@ -152,15 +148,15 @@ function computeStats(array $userRow, array $transactions): array
     }
 
     return [
-        'balance' => $balance,
+        'balance' => $balance,                     
         'expenseToday' => $expenseToday,
         'expenseMonth' => $expenseMonth,
         'lossMonth' => $lossMonth,
-        'budgetUsed' => $budgetUsed,
-        'budgetRemaining' => $budgetRemaining,
+        'budgetUsed' => max(0.0, $allocatedBudget - $budgetRemaining), 
+        'budgetRemaining' => $budgetRemaining,     
         'monthlyRecords' => $monthlyRecords,
         'currentMonthLabel' => monthLabelSw($curMonth),
-        'allocatedBudget' => $allocated,
+        'allocatedBudget' => $allocatedBudget,
     ];
 }
 
@@ -188,11 +184,6 @@ function canModify(array $tx): bool
     return (time() * 1000 - $createdAt) <= 2 * 60 * 60 * 1000;
 }
 
-function makeId(): string
-{
-    return bin2hex(random_bytes(5));
-}
-
 switch ($action) {
 
     case 'register': {
@@ -209,8 +200,18 @@ switch ($action) {
         }
         $salioAwali = (float) ($input['salioAwali'] ?? 0);
         $bajeti = (float) ($input['bajeti'] ?? 0);
+        
+        if ($bajeti < 0 || $salioAwali < 0) {
+            respond(['error' => 'Kiasi cha salio au bajeti hakiwezi kuwa chini ya sifuri.'], 422);
+        }
+        if ($bajeti > $salioAwali) {
+            respond(['error' => 'Huwezi kuweka bajeti kubwa kuliko salio lako la mwanzo.'], 422);
+        }
+        
+        $salioSasa = $salioAwali - $bajeti;
+
         $stmt = $pdo->prepare('INSERT INTO users (username, password_hash, jina, salio_awali, bajeti_mwezi, bajeti_allocated) VALUES (?, ?, ?, ?, ?, ?)');
-        $stmt->execute([$email, password_hash($password, PASSWORD_DEFAULT), $jina, $salioAwali, $bajeti, $bajeti]);
+        $stmt->execute([$email, password_hash($password, PASSWORD_DEFAULT), $jina, $salioSasa, $bajeti, $bajeti]);
         $_SESSION['user_id'] = (int) $pdo->lastInsertId();
         respond(fullState($pdo, $_SESSION['user_id']));
     }
@@ -253,6 +254,10 @@ switch ($action) {
         }
 
         $userRow = fetchUserRow($pdo, $userId);
+        $liveBalance = (float) $userRow['salio_awali'];
+        $liveBudget = (float) $userRow['bajeti_allocated'];
+        $targetBudget = (float) $userRow['bajeti_mwezi'];
+
         $existing = null;
         if ($id) {
             $stmt = $pdo->prepare('SELECT * FROM transactions WHERE id = ? AND user_id = ?');
@@ -262,77 +267,179 @@ switch ($action) {
                 respond(['error' => 'Muamala haujapatikana.'], 404);
             }
             $existingForCheck = [
-                'id' => $existing['id'], 'type' => $existing['type'], 'amount' => (float) $existing['amount'],
-                'date' => $existing['date'], 'createdAt' => (int) $existing['created_at'],
+                'id' => $existing['id'],
+                'type' => $existing['type'],
+                'amount' => (float) $existing['amount'],
+                'date' => $existing['date'],
+                'createdAt' => strtotime($existing['created_at']) * 1000,
             ];
             if (!canModify($existingForCheck)) {
                 respond(['error' => 'Muamala huu hauwezi kuhaririwa baada ya masaa 2.'], 403);
             }
         }
 
-        // Simulate the balance after this change, mirroring the original client-side check:
-        // an expense/loss cannot push the overall balance negative.
-        if (in_array($type, ['matumizi', 'hasara'], true)) {
-            $transactions = fetchTransactions($pdo, $userId);
-            if ($existing) {
-                $transactions = array_values(array_filter($transactions, fn($t) => $t['id'] !== $existing['id']));
+        if ($existing) {
+            $oldType = $existing['type'];
+            $oldAmount = (float) $existing['amount'];
+
+            $tempBalance = $liveBalance;
+            $tempBudget = $liveBudget;
+
+            // Rollback ya muamala wa zamani kwa majaribio
+            if ($oldType === 'mapato') $tempBalance -= $oldAmount;
+            if ($oldType === 'hasara') $tempBalance += $oldAmount;
+            if ($oldType === 'matumizi') $tempBudget += $oldAmount;
+
+            // Weka kiasi kipya kwa majaribio
+            if ($type === 'mapato') $tempBalance += $amount;
+            if ($type === 'hasara') $tempBalance -= $amount;
+            if ($type === 'matumizi') $tempBudget -= $amount;
+
+            // Ukaguzi makini wa Salio Kuu na Dari la Bajeti wakati wa kuhariri
+            if ($tempBalance < 0) {
+                respond(['error' => 'Mabadiliko yamekataliwa! Salio lako kuu halitoshi kufidia hariri hii.'], 422);
             }
-            $transactions[] = ['type' => $type, 'amount' => $amount, 'date' => $date];
-            $projected = computeStats($userRow, $transactions);
-            if ($projected['balance'] < 0) {
-                $current = computeStats($userRow, fetchTransactions($pdo, $userId));
-                respond(['error' => 'Salio haijatosha kwa muamala huu. Salio lako sasa: ' . number_format($current['balance']) . '.'], 422);
+            if ($type === 'matumizi' && $tempBudget < 0) {
+                respond(['error' => 'Mabadiliko yamekataliwa! Bajeti yako haitatosha. Inabaki: ' . number_format($liveBudget + $oldAmount)], 422);
+            }
+            
+            // Kuzuia kuhariri kusiache bajeti iliyobaki ikiwa kubwa kuliko target
+            if ($tempBudget > $targetBudget) {
+                $tempBudget = $targetBudget;
+            }
+
+            $liveBalance = $tempBalance;
+            $liveBudget = $tempBudget;
+        } else {
+            // MANTIKI MPYA YA MUAMALA MPYA (ELSE):
+            if ($type === 'matumizi') {
+                if ($liveBudget <= 0) {
+                    respond([
+                        'error' => 'Bajeti yako imeisha. Tafadhali ongeza bajeti kwanza kabla ya kurekodi matumizi mengine.'
+                    ], 422);
+                }
+
+                if ($amount > $liveBudget) {
+                    respond([
+                        'error' => 'Muamala umekataliwa! Bajeti iliyobaki ni TSh ' . number_format($liveBudget) . ' tu.'
+                    ], 422);
+                }
+            }
+
+            // Ukaguzi wa Hasara dhidi ya Salio Kuu pekee
+            if ($type === 'hasara' && $amount > $liveBalance) {
+                respond(['error' => 'Muamala umekataliwa! Salio kuu halitoshi kufidia hasara hii.'], 422);
+            }
+
+            // Mabadiliko halisi ya fedha kulingana na aina ya muamala
+            if ($type === 'mapato') {
+                $liveBalance += $amount;
+            }
+            if ($type === 'hasara') {
+                $liveBalance -= $amount;
+            }
+            if ($type === 'matumizi') {
+                $liveBudget -= $amount; // Inakata kwenye bajeti pekee, haigusi Salio Kuu!
             }
         }
 
-        $now = (int) (microtime(true) * 1000);
+        $now = date('Y-m-d H:i:s');
         if ($existing) {
             $stmt = $pdo->prepare('UPDATE transactions SET type=?, amount=?, category=?, note=?, `date`=?, updated_at=? WHERE id=? AND user_id=?');
             $stmt->execute([$type, $amount, $category, $note, $date, $now, $id, $userId]);
         } else {
-            $newId = makeId();
-            $stmt = $pdo->prepare('INSERT INTO transactions (id, user_id, type, amount, category, note, `date`, created_at) VALUES (?,?,?,?,?,?,?,?)');
-            $stmt->execute([$newId, $userId, $type, $amount, $category, $note, $date, $now]);
+            $stmt = $pdo->prepare('INSERT INTO transactions (user_id, type, amount, category, note, `date`, created_at) VALUES (?,?,?,?,?,?,?)');
+            $stmt->execute([$userId, $type, $amount, $category, $note, $date, $now]);
         }
+
+        $stmt = $pdo->prepare('UPDATE users SET salio_awali = ?, bajeti_allocated = ? WHERE id = ?');
+        $stmt->execute([$liveBalance, $liveBudget, $userId]);
+
         respond(fullState($pdo, $userId));
     }
 
     case 'delete_transaction': {
         $userId = requireAuth();
-        $id = (string) ($input['id'] ?? '');
+        $id = $input['id'] ?? '';
         $stmt = $pdo->prepare('SELECT * FROM transactions WHERE id = ? AND user_id = ?');
         $stmt->execute([$id, $userId]);
         $tx = $stmt->fetch(PDO::FETCH_ASSOC);
         if (!$tx) {
             respond(['error' => 'Muamala haujapatikana.'], 404);
         }
-        $txForCheck = ['createdAt' => (int) $tx['created_at']];
+        $txForCheck = ['createdAt' => strtotime($tx['created_at']) * 1000];
         if (!canModify($txForCheck)) {
             respond(['error' => 'Muamala huu hauwezi kufutwa baada ya masaa 2.'], 403);
         }
-        $now = (int) (microtime(true) * 1000);
+
+        $userRow = fetchUserRow($pdo, $userId);
+        $liveBalance = (float) $userRow['salio_awali'];
+        $liveBudget = (float) $userRow['bajeti_allocated'];
+        $amount = (float) $tx['amount'];
+
+        if ($tx['type'] === 'mapato' && ($liveBalance - $amount) < 0) {
+            respond(['error' => 'Imeshindikana kufuta muamala huu! Kufuta hapa kutapeleka Salio Kuu chini ya sifuri.'], 422);
+        }
+
+        if ($tx['type'] === 'mapato') $liveBalance -= $amount; 
+        if ($tx['type'] === 'hasara') $liveBalance += $amount; 
+        
+        // Kufuta matumizi hakuwezi kupandisha bajeti iliyobaki juu ya target ya mwezi
+        if ($tx['type'] === 'matumizi') {
+            $liveBudget = min($liveBudget + $amount, (float) $userRow['bajeti_mwezi']);
+        }
+
+        $now = date('Y-m-d H:i:s');
         $ins = $pdo->prepare('INSERT INTO deleted_transactions (id, user_id, type, amount, category, note, `date`, created_at, deleted_at) VALUES (?,?,?,?,?,?,?,?,?)');
         $ins->execute([$tx['id'], $userId, $tx['type'], $tx['amount'], $tx['category'], $tx['note'], $tx['date'], $tx['created_at'], $now]);
+        
         $del = $pdo->prepare('DELETE FROM transactions WHERE id = ? AND user_id = ?');
         $del->execute([$id, $userId]);
+
+        $stmt = $pdo->prepare('UPDATE users SET salio_awali = ?, bajeti_allocated = ? WHERE id = ?');
+        $stmt->execute([$liveBalance, $liveBudget, $userId]);
+
         respond(fullState($pdo, $userId));
     }
 
     case 'update_profile': {
         $userId = requireAuth();
         $jina = trim((string) ($input['jina'] ?? ''));
-        $budget = (float) ($input['bajeti'] ?? 0);
         $userRow = fetchUserRow($pdo, $userId);
-        $currentAllocated = (float) ($userRow['bajeti_allocated'] ?: $userRow['bajeti_mwezi']);
-        $currentStats = computeStats($userRow, fetchTransactions($pdo, $userId));
-        $availableMain = $currentStats['balance'] + $currentAllocated;
-        if ($budget > $availableMain) {
-            respond(['error' => 'Bajeti isiyofaa. Salio lako linaloopatikana ni ' . number_format($availableMain) . ', lakini unataka kuweka bajeti ya ' . number_format($budget) . '.'], 422);
+        
+        $liveBalance = (float) $userRow['salio_awali'];
+        $oldBudgetSetting = (float) $userRow['bajeti_mwezi'];
+        $newBudgetSetting = isset($input['bajeti']) ? (float) $input['bajeti'] : $oldBudgetSetting;
+        
+        if ($newBudgetSetting < 0) {
+            respond(['error' => 'Bajeti haiwezi kuwa chini ya sifuri.'], 422);
         }
-        $delta = $budget - $currentAllocated;
-        $newSalioAwali = (float) $userRow['salio_awali'] - $delta;
+
+        $used = $oldBudgetSetting - (float) $userRow['bajeti_allocated'];
+
+        if ($newBudgetSetting < $used) {
+            respond([
+                'error' => 'Huwezi kuweka bajeti chini ya kiasi ambacho tayari kimetumika (Kimetumika: ' . number_format($used) . ').'
+            ], 422);
+        }
+
+        $newRemaining = $newBudgetSetting - $used;
+        $delta = $newBudgetSetting - $oldBudgetSetting;
+
+        if ($delta > 0 && $delta > $liveBalance) {
+            respond(['error' => 'Imeshindikana! Salio lako kuu halitoshi kufidia nyongeza ya bajeti kuu.'], 422);
+        }
+
+        $liveBalance -= $delta;
+        
         $stmt = $pdo->prepare('UPDATE users SET jina=?, bajeti_mwezi=?, bajeti_allocated=?, salio_awali=? WHERE id=?');
-        $stmt->execute([$jina !== '' ? $jina : $userRow['jina'], $budget, $budget, $newSalioAwali, $userId]);
+        $stmt->execute([
+            $jina !== '' ? $jina : $userRow['jina'], 
+            $newBudgetSetting, 
+            $newRemaining, 
+            $liveBalance, 
+            $userId
+        ]);
         respond(fullState($pdo, $userId));
     }
 
@@ -343,15 +450,27 @@ switch ($action) {
             respond(['error' => 'Tafadhali ingiza kiasi halali cha kuhamisha kwenye bajeti.'], 400);
         }
         $userRow = fetchUserRow($pdo, $userId);
-        $currentStats = computeStats($userRow, fetchTransactions($pdo, $userId));
-        if ($transferAmount > $currentStats['balance']) {
-            respond(['error' => 'Salio lako halitoshi. Salio lako sasa ni ' . number_format($currentStats['balance']) . ', lakini unataka kuhamisha ' . number_format($transferAmount) . '.'], 422);
+        $liveBalance = (float) $userRow['salio_awali'];
+        $liveBudget = (float) $userRow['bajeti_allocated'];
+        $targetBudget = (float) $userRow['bajeti_mwezi'];
+        
+        // Kukataa transfer kama itazidi dari (target ya bajeti ya mwezi)
+        if (($liveBudget + $transferAmount) > $targetBudget) {
+            $maxAllowedTransfer = max(0.0, $targetBudget - $liveBudget);
+            respond([
+                'error' => 'Imeshindikana! Kiasi unachotaka kuhamisha kitazidi malengo ya bajeti ya mwezi. Unaweza kuhamisha kiwango cha mwisho cha hadi ' . number_format($maxAllowedTransfer) . ' tu.'
+            ], 422);
         }
-        $currentAllocated = (float) ($userRow['bajeti_allocated'] ?: $userRow['bajeti_mwezi']);
-        $newAllocated = $currentAllocated + $transferAmount;
-        $newSalioAwali = (float) $userRow['salio_awali'] - $transferAmount;
-        $stmt = $pdo->prepare('UPDATE users SET bajeti_allocated=?, bajeti_mwezi=?, salio_awali=? WHERE id=?');
-        $stmt->execute([$newAllocated, $newAllocated, $newSalioAwali, $userId]);
+
+        if ($liveBalance <= 0 || $transferAmount > $liveBalance) {
+            respond(['error' => 'Imeshindikana! Salio lako kuu la sasa (' . number_format($liveBalance) . ') halitoshi kuhamisha ' . number_format($transferAmount) . ' kwenda kwenye bajeti.'], 422);
+        }
+        
+        $newBudget = $liveBudget + $transferAmount;
+        $newBalance = $liveBalance - $transferAmount;
+        
+        $stmt = $pdo->prepare('UPDATE users SET bajeti_allocated=?, salio_awali=? WHERE id=?');
+        $stmt->execute([$newBudget, $newBalance, $userId]);
         respond(fullState($pdo, $userId));
     }
 
