@@ -1,6 +1,6 @@
 <?php
 // api.php — Mfumo wa Wallet Halisi (Live Balances) wenye MySQL na PDO.
-// Toleo la Uzalishaji (Production-Ready) — Ulinzi thabiti wa Bajeti na Salio.
+// Toleo lenye Ulinzi Mkali wa Bajeti (Strict Budget Isolation Mode).
 
 declare(strict_types=1);
 require __DIR__ . '/bootstrap.php';
@@ -295,9 +295,9 @@ switch ($action) {
             if ($type === 'hasara') $tempBalance -= $amount;
             if ($type === 'matumizi') $tempBudget -= $amount;
 
-            // Ukaguzi makini wa Salio Kuu na Dari la Bajeti wakati wa kuhariri
+            // Ukaguzi wa kihasibu wakati wa KUHARIRI (Edit Mode)
             if ($tempBalance < 0) {
-                respond(['error' => 'Mabadiliko yamekataliwa! Salio lako kuu halitoshi kufidia hariri hii.'], 422);
+                respond(['error' => 'Mabadiliko yamekataliwa! Salio lako kuu halitoshi.'], 422);
             }
             if ($type === 'matumizi' && $tempBudget < 0) {
                 respond(['error' => 'Mabadiliko yamekataliwa! Bajeti yako haitatosha. Inabaki: ' . number_format($liveBudget + $oldAmount)], 422);
@@ -311,7 +311,7 @@ switch ($action) {
             $liveBalance = $tempBalance;
             $liveBudget = $tempBudget;
         } else {
-            // MANTIKI MPYA YA MUAMALA MPYA (ELSE):
+            // MASHARTI MAPYA KABISA KWA MUAMALA MPYA (New Transaction Mode)
             if ($type === 'matumizi') {
                 if ($liveBudget <= 0) {
                     respond([
@@ -331,7 +331,7 @@ switch ($action) {
                 respond(['error' => 'Muamala umekataliwa! Salio kuu halitoshi kufidia hasara hii.'], 422);
             }
 
-            // Mabadiliko halisi ya fedha kulingana na aina ya muamala
+            // Mabadiliko halisi ya fedha (MATUMIZI HAYAGUSI SALIO KUU)
             if ($type === 'mapato') {
                 $liveBalance += $amount;
             }
@@ -339,7 +339,7 @@ switch ($action) {
                 $liveBalance -= $amount;
             }
             if ($type === 'matumizi') {
-                $liveBudget -= $amount; // Inakata kwenye bajeti pekee, haigusi Salio Kuu!
+                $liveBudget -= $amount; 
             }
         }
 
