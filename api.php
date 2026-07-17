@@ -3,7 +3,7 @@
 // zimehamishiwa hapa. Kila ombi (request) huzungumza na MySQL kupitia PDO.
 
 declare(strict_types=1);
-require __DIR__ . '/classes/bootstrap.php';
+require __DIR__ . '/bootstrap.php';
 // bootstrap.php tayari imefungua $pdo (MySQL, kwa kutumia config.php yako
 // ya InfinityFree), imeanzisha session, na imeweka Content-Type header.
 
