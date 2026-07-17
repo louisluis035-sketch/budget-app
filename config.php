@@ -1,11 +1,12 @@
 <?php
+
 return [
-    'db' => [
-        'host' => 'sql308.infinityfree.com',
-        'name' => 'if0_42424455_budget_app',
-        'user' => 'if0_42424455' ,
-        'pass' => 'uvkB0owv2jXwHF',
-        'charset' => 'utf8mb4',
+    "db" => [
+        "host" => "127.0.0.1",
+        "name" => "budget_app",
+        "user" => "root",
+        "pass" => "",
+        "charset" => "utf8mb4",
     ],
-    'encryption_key' => 'ChangeThisToAStrongRandomKey12345',
+    "encryption_key" => "ChangeThisToAStrongRandomKey12345",
 ];
