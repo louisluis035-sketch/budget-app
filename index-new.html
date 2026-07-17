@@ -1,0 +1,989 @@
+<!DOCTYPE html>
+<html lang="sw">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Salio - Mwelekeo wa Fedha</title>
+    <style>
+      :root {
+        --bg: #07111f;
+        --panel: #101c2e;
+        --panel-2: #14233a;
+        --text: #f4efe7;
+        --muted: #8fa1b8;
+        --accent: #c9a227;
+        --accent-2: #7fb3a3;
+        --danger: #e0847a;
+        --border: #24374f;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        font-family: Inter, Segoe UI, Arial, sans-serif;
+        color: var(--text);
+        background: radial-gradient(circle at top left, #16263d 0%, var(--bg) 55%, #0b1526 100%);
+      }
+      button, input, select { font-family: inherit; }
+      button { cursor: pointer; }
+      .app { min-height: 100vh; }
+      .auth-screen {
+        min-height: 100vh;
+        display: grid;
+        place-items: center;
+        padding: 24px;
+      }
+      .auth-card, .dashboard-shell, .modal-card {
+        background: rgba(16, 28, 46, 0.95);
+        border: 1px solid var(--border);
+        box-shadow: 0 20px 45px rgba(0, 0, 0, 0.28);
+      }
+      .auth-card {
+        width: min(100%, 440px);
+        border-radius: 22px;
+        overflow: hidden;
+      }
+      .auth-header {
+        padding: 22px 24px 10px;
+      }
+      .brand {
+        font-size: 34px;
+        font-weight: 800;
+        letter-spacing: -0.03em;
+      }
+      .tagline { color: var(--muted); font-size: 14px; margin-top: 6px; }
+      .tabs {
+        display: flex;
+        gap: 8px;
+        padding: 0 24px 16px;
+      }
+      .tab-btn {
+        flex: 1;
+        padding: 10px 12px;
+        border-radius: 10px;
+        border: 1px solid var(--border);
+        background: transparent;
+        color: var(--muted);
+        font-weight: 700;
+      }
+      .tab-btn.active {
+        background: var(--accent);
+        color: #0f1b2d;
+        border-color: var(--accent);
+      }
+      .auth-body { padding: 0 24px 24px; display: grid; gap: 13px; }
+      .field label { display: grid; gap: 7px; font-size: 12px; color: var(--muted); }
+      .field input, .field select {
+        width: 100%;
+        border: 1px solid var(--border);
+        background: #0f1b2d;
+        color: var(--text);
+        padding: 11px 12px;
+        border-radius: 10px;
+      }
+      .primary-btn {
+        border: none;
+        background: linear-gradient(135deg, var(--accent), #e2b84d);
+        color: #0f1b2d;
+        padding: 12px 14px;
+        border-radius: 10px;
+        font-weight: 800;
+      }
+      .secondary-btn {
+        border: 1px solid var(--border);
+        background: transparent;
+        color: var(--muted);
+        padding: 10px 12px;
+        border-radius: 10px;
+        font-weight: 700;
+      }
+      .warning { color: var(--danger); font-size: 13px; min-height: 18px; }
+      .hint { color: #59708d; font-size: 12px; text-align: center; margin-top: 6px; }
+
+      .dashboard-shell {
+        max-width: 960px;
+        margin: 0 auto;
+        min-height: 100vh;
+        padding: 18px 18px 40px;
+      }
+      .topbar {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 16px;
+      }
+      .nav {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+      .nav-btn {
+        border: 1px solid var(--border);
+        border-radius: 999px;
+        background: transparent;
+        color: var(--muted);
+        padding: 8px 12px;
+        font-weight: 700;
+      }
+      .nav-btn.active {
+        background: #16263d;
+        color: var(--text);
+      }
+      .stripe {
+        height: 10px;
+        border-radius: 999px;
+        background: repeating-linear-gradient(60deg, var(--accent) 0 6px, #0f1b2d 6px 12px);
+        margin-bottom: 18px;
+      }
+      .hero-card {
+        background: linear-gradient(135deg, #16263d, #0f1b2d);
+        border: 1px solid var(--border);
+        border-radius: 20px;
+        padding: 22px;
+        margin-bottom: 16px;
+      }
+      .hero-top {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        gap: 14px;
+        flex-wrap: wrap;
+      }
+      .hero-label { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; }
+      .balance {
+        font-weight: 800;
+        font-size: 34px;
+        margin-top: 6px;
+        font-variant-numeric: tabular-nums;
+      }
+      .trend { color: var(--accent-2); font-size: 13px; margin-top: 8px; }
+      .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        gap: 12px;
+        margin-top: 16px;
+      }
+      .stat-card {
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        padding: 14px;
+        background: rgba(255,255,255,0.03);
+      }
+      .stat-label { color: var(--muted); font-size: 12px; }
+      .stat-value { font-size: 20px; font-weight: 800; margin-top: 6px; font-variant-numeric: tabular-nums; }
+      .budget-card {
+        margin-top: 16px;
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        padding: 16px;
+        background: rgba(255,255,255,0.03);
+      }
+      .budget-bar {
+        height: 8px;
+        border-radius: 999px;
+        background: #0f1b2d;
+        overflow: hidden;
+        margin-top: 10px;
+      }
+      .budget-bar > div { height: 100%; background: var(--accent); transition: width .25s ease; }
+      .section-head {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 12px;
+        margin: 24px 0 10px;
+      }
+      .section-title { font-size: 18px; font-weight: 800; }
+      .list { display: grid; gap: 10px; }
+      .item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 12px;
+        padding: 12px 14px;
+        background: rgba(255,255,255,0.03);
+        border: 1px solid var(--border);
+        border-radius: 14px;
+      }
+      .item .meta { color: var(--muted); font-size: 12px; margin-top: 3px; }
+      .amount { font-weight: 800; font-variant-numeric: tabular-nums; }
+      .amount.positive { color: var(--accent-2); }
+      .amount.negative { color: var(--danger); }
+      .empty {
+        border: 1px dashed var(--border);
+        border-radius: 14px;
+        padding: 24px;
+        color: var(--muted);
+        text-align: center;
+      }
+      .profile-card {
+        max-width: 460px;
+        border: 1px solid var(--border);
+        border-radius: 18px;
+        padding: 18px;
+        background: rgba(255,255,255,0.03);
+      }
+      .profile-actions { display: flex; gap: 10px; margin-top: 16px; }
+      .modal-backdrop {
+        position: fixed;
+        inset: 0;
+        background: rgba(7, 17, 31, 0.8);
+        display: grid;
+        place-items: center;
+        padding: 18px;
+        z-index: 100;
+      }
+      .modal-card {
+        width: min(100%, 430px);
+        border-radius: 18px;
+        padding: 18px;
+      }
+      .modal-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
+      .type-row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-bottom: 12px; }
+      .type-btn {
+        border: 1px solid var(--border);
+        background: transparent;
+        color: var(--muted);
+        border-radius: 10px;
+        padding: 9px 8px;
+        font-weight: 700;
+      }
+      .type-btn.active { background: #16263d; color: var(--text); }
+      .modal-actions { display: flex; gap: 10px; margin-top: 16px; }
+      .modal-actions > * { flex: 1; }
+      @media (max-width: 640px) {
+        .type-row { grid-template-columns: 1fr; }
+      }
+    </style>
+  </head>
+  <body>
+    <div id="app"></div>
+    <script>
+      const STORAGE_KEY = 'salio-users-v1';
+      const SESSION_KEY = 'salio-session-v1';
+      const CATS = [
+        { id: 'chakula', label: 'Chakula' },
+        { id: 'usafiri', label: 'Usafiri' },
+        { id: 'nyumba', label: 'Nyumba / Kodi' },
+        { id: 'afya', label: 'Afya' },
+        { id: 'elimu', label: 'Elimu' },
+        { id: 'burudani', label: 'Burudani' },
+        { id: 'mengineyo', label: 'Mengineyo' },
+      ];
+      const TYPE_META = {
+        mapato: { label: 'Mapato', color: 'positive' },
+        matumizi: { label: 'Matumizi', color: 'negative' },
+        hasara: { label: 'Hasara', color: 'negative' },
+      };
+      function fmt(n) {
+        return 'TSh ' + Math.round(Number(n) || 0).toLocaleString('en-US');
+      }
+      function todayIso() {
+        return new Date().toISOString().slice(0, 10);
+      }
+      function monthKey(d) {
+        return d ? d.slice(0, 7) : '';
+      }
+      function uid() {
+        return Math.random().toString(36).slice(2, 10);
+      }
+      function loadUsers() {
+        try {
+          return JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
+        } catch {
+          return {};
+        }
+      }
+      function saveUsers(users) {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(users));
+      }
+
+      function App() {
+        const state = {
+          users: loadUsers(),
+          session: localStorage.getItem(SESSION_KEY) || '',
+          screen: localStorage.getItem(SESSION_KEY) ? 'app' : 'login',
+          authError: ''
+        };
+        const root = document.getElementById('app');
+        const render = () => {
+          const user = state.session ? state.users[state.session] : null;
+          root.innerHTML = '';
+          if (state.screen === 'app' && user) {
+            root.appendChild(Dashboard(state, render));
+          } else {
+            root.appendChild(AuthScreen(state, render));
+          }
+        };
+        render();
+      }
+
+      function AuthScreen(state, render) {
+        const wrap = document.createElement('div');
+        wrap.className = 'auth-screen';
+        wrap.innerHTML = `
+          <div class="auth-card">
+            <div class="auth-header">
+              <div class="brand">Salio</div>
+              <div class="tagline">Fuata fedha zako vizuri, kwa usimamizi wa kisasa wa karibu na wewe.</div>
+            </div>
+            <div class="tabs">
+              <button class="tab-btn ${state.screen === 'login' ? 'active' : ''}" data-mode="login">Ingia</button>
+              <button class="tab-btn ${state.screen === 'register' ? 'active' : ''}" data-mode="register">Jisajili</button>
+            </div>
+            <div class="auth-body"></div>
+          </div>`;
+        const body = wrap.querySelector('.auth-body');
+        const form = state.screen === 'login' ? loginForm() : registerForm();
+        body.appendChild(form);
+        wrap.querySelectorAll('.tab-btn').forEach((btn) => {
+          btn.addEventListener('click', () => {
+            state.screen = btn.getAttribute('data-mode');
+            state.authError = '';
+            render();
+          });
+        });
+        return wrap;
+
+        function loginForm() {
+          const formEl = document.createElement('form');
+          formEl.innerHTML = `
+            <div class="field">
+              <label>Barua pepe au jina la mtumiaji
+                <input name="identifier" required>
+              </label>
+            </div>
+            <div class="field">
+              <label>Nenosiri
+                <div style="display:flex;gap:8px;align-items:center;">
+                  <input name="password" type="password" required>
+                  <button type="button" class="secondary-btn password-toggle">Onyesha</button>
+                </div>
+              </label>
+            </div>
+            <div class="warning">${state.authError || '&nbsp;'}</div>
+            <button class="primary-btn" type="submit">Ingia</button>
+            <div class="hint">Data yako itahifadhiwa kwenye kifaa chako.</div>`;
+          formEl.querySelector('.password-toggle')?.addEventListener('click', () => {
+            const input = formEl.querySelector('input[name="password"]');
+            if (!input) return;
+            input.type = input.type === 'password' ? 'text' : 'password';
+            formEl.querySelector('.password-toggle').textContent = input.type === 'password' ? 'Onyesha' : 'Ficha';
+          });
+          formEl.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const data = Object.fromEntries(new FormData(formEl));
+            const user = state.users[data.identifier];
+            if (!user || user.password !== data.password) {
+              state.authError = 'Barua pepe/jina la mtumiaji au nenosiri si sahihi.';
+              render();
+              return;
+            }
+            state.authError = '';
+            state.session = data.identifier;
+            state.screen = 'app';
+            localStorage.setItem(SESSION_KEY, state.session);
+            render();
+          });
+          return formEl;
+        }
+
+        function registerForm() {
+          const formEl = document.createElement('form');
+          formEl.innerHTML = `
+            <div class="field">
+              <label>Jina lako kamili
+                <input name="jina" required>
+              </label>
+            </div>
+            <div class="field">
+              <label>Barua pepe
+                <input name="email" type="email" required>
+              </label>
+            </div>
+            <div class="field">
+              <label>Nenosiri
+                <div style="display:flex;gap:8px;align-items:center;">
+                  <input name="password" type="password" required>
+                  <button type="button" class="secondary-btn password-toggle">Onyesha</button>
+                </div>
+              </label>
+            </div>
+            <div class="warning">${state.authError || '&nbsp;'}</div>
+            <button class="primary-btn" type="submit">Fungua Akaunti</button>
+            <div class="hint">Utaweza kuanza kufuatilia matumizi yako mara moja.</div>`;
+          formEl.querySelector('.password-toggle')?.addEventListener('click', () => {
+            const input = formEl.querySelector('input[name="password"]');
+            if (!input) return;
+            input.type = input.type === 'password' ? 'text' : 'password';
+            formEl.querySelector('.password-toggle').textContent = input.type === 'password' ? 'Onyesha' : 'Ficha';
+          });
+          formEl.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const data = Object.fromEntries(new FormData(formEl));
+            if (!data.email || !data.password || !data.jina) {
+              state.authError = 'Tafadhali jaza sehemu zote.';
+              render();
+              return;
+            }
+            if (state.users[data.email]) {
+              state.authError = 'Barua pepe tayari imetumika.';
+              render();
+              return;
+            }
+            const newUser = {
+              username: data.email,
+              password: data.password,
+              jina: data.jina,
+              salioAwali: Number(data.salioAwali) || 0,
+              bajetiMwezi: Number(data.bajeti) || 0,
+              bajetiAllocated: Number(data.bajeti) || 0,
+              transactions: []
+            };
+            state.users[data.email] = newUser;
+            saveUsers(state.users);
+            state.session = data.email;
+            state.screen = 'app';
+            localStorage.setItem(SESSION_KEY, state.session);
+            state.authError = '';
+            render();
+          });
+          return formEl;
+        }
+      }
+
+      function Dashboard(state, render) {
+        const user = state.users[state.session];
+        const shell = document.createElement('div');
+        shell.className = 'dashboard-shell';
+
+        let view = 'dashboard';
+        let selectedHistoryDate = todayIso();
+
+        function renderShell() {
+          const stats = computeStats(user);
+          shell.innerHTML = '';
+          const topbar = document.createElement('div');
+          topbar.className = 'topbar';
+          topbar.innerHTML = `
+            <div class="brand" style="font-size:24px;">Salio</div>
+            <div class="nav">
+              <button class="nav-btn ${view === 'dashboard' ? 'active' : ''}" data-view="dashboard">Dashboard</button>
+              <button class="nav-btn ${view === 'history' ? 'active' : ''}" data-view="history">Historia</button>
+              <button class="nav-btn ${view === 'profile' ? 'active' : ''}" data-view="profile">Wasifu</button>
+              <button class="secondary-btn" id="logout">Toka</button>
+            </div>`;
+          shell.appendChild(topbar);
+
+          const stripe = document.createElement('div');
+          stripe.className = 'stripe';
+          shell.appendChild(stripe);
+
+          if (view === 'dashboard') {
+            const hero = document.createElement('div');
+            hero.className = 'hero-card';
+            hero.innerHTML = `
+              <div class="hero-top">
+                <div>
+                  <div class="hero-label">Salio lako la sasa</div>
+                  <div class="balance">${fmt(stats.balance)}</div>
+                  <div class="trend">Habari ${user.jina.split(' ')[0]} — unaendelea vizuri.</div>
+                </div>
+                <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                  <button class="primary-btn" id="add-transaction">+ Ongeza muamala</button>
+                  <button class="secondary-btn" id="set-budget">Weka Bajeti</button>
+                </div>
+              </div>
+              <div class="stats-grid">
+                <div class="stat-card">
+                  <div class="stat-label">Matumizi ya leo</div>
+                  <div class="stat-value">${fmt(stats.expenseToday)}</div>
+                </div>
+                <div class="stat-card">
+                  <div class="stat-label">Matumizi ya ${stats.currentMonthLabel}</div>
+                  <div class="stat-value">${fmt(stats.expenseMonth)}</div>
+                </div>
+                <div class="stat-card">
+                  <div class="stat-label">Hasara ya mwezi</div>
+                  <div class="stat-value">${fmt(stats.lossMonth)}</div>
+                </div>
+              </div>
+              <div class="budget-card">
+                <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;">
+                  <span>Bajeti ya mwezi</span>
+                  <span>${stats.allocatedBudget ? 'Iliyokamatia: ' + fmt(stats.allocatedBudget) : 'Hajaweka bajeti'}</span>
+                </div>
+                <div style="font-size:12px;color:var(--muted);margin-top:6px;">Kiasi: ${fmt(stats.budgetUsed)} / ${fmt(stats.allocatedBudget)} · Ilibaki: ${fmt(stats.budgetRemaining)}</div>
+                <div class="budget-bar"><div style="width:${stats.allocatedBudget ? Math.min(100, Math.max(0, (stats.budgetUsed / stats.allocatedBudget) * 100)) : 0}%;background:${stats.budgetRemaining > 0 ? 'var(--accent)' : 'var(--danger)'}" ></div></div>
+              </div>
+              <div class="section-head">
+                <div class="section-title">Historia ya matumizi</div>
+              </div>
+              <div class="list">
+                ${stats.monthlyRecords.length ? stats.monthlyRecords.map((record) => `
+                  <div class="item">
+                    <div>
+                      <div>${record.label}</div>
+                      <div class="meta">Mapato ${fmt(record.income)} · Matumizi ${fmt(record.expense)} · Hasara ${fmt(record.loss)}</div>
+                    </div>
+                    <div class="amount negative">${fmt(record.expense)}</div>
+                  </div>`).join('') : '<div class="empty">Hakuna historia ya miezi iliyopita bado.</div>'}
+              </div>`;
+            shell.appendChild(hero);
+
+            const head = document.createElement('div');
+            head.className = 'section-head';
+            head.innerHTML = `
+              <div class="section-title">Muamala wa hivi karibuni</div>
+            `;
+            shell.appendChild(head);
+
+            const list = document.createElement('div');
+            list.className = 'list';
+            if (!user.transactions.length) {
+              list.innerHTML = '<div class="empty">Bado hakuna muamala. Bonyeza “+ Ongeza muamala” kuanza.</div>';
+            } else {
+              [...user.transactions].sort((a, b) => b.date.localeCompare(a.date)).forEach((t) => {
+                const item = document.createElement('div');
+                item.className = 'item';
+                const meta = TYPE_META[t.type];
+                const categoryLabel = CATS.find((c) => c.id === t.category)?.label || '';
+                item.innerHTML = `
+                  <div>
+                    <div>${t.note || meta.label}</div>
+                    <div class="meta">${meta.label} · ${t.date}${categoryLabel ? ' · ' + categoryLabel : ''}</div>
+                  </div>
+                  <div style="display:flex;align-items:center;gap:10px;">
+                    <div class="amount ${meta.color}">${meta.color === 'positive' ? '+' : '-'}${fmt(t.amount)}</div>
+                    <button class="secondary-btn" data-id="${t.id}" data-action="edit" title="Hariri">✎</button>
+                    <button class="secondary-btn" data-id="${t.id}" data-action="delete" title="Futa">x</button>
+                  </div>`;
+                list.appendChild(item);
+              });
+            }
+            shell.appendChild(list);
+          } else if (view === 'history') {
+            const card = document.createElement('div');
+            card.className = 'profile-card';
+            const historyItems = [...user.transactions]
+              .filter((t) => t.date === selectedHistoryDate)
+              .sort((a, b) => b.date.localeCompare(a.date));
+            const deletedItems = [...(user.deletedTransactions || [])]
+              .filter((t) => t.date === selectedHistoryDate)
+              .sort((a, b) => (b.deletedAt || 0) - (a.deletedAt || 0));
+            const totalIncome = historyItems.filter((t) => t.type === 'mapato').reduce((sum, t) => sum + t.amount, 0);
+            const totalExpense = historyItems.filter((t) => t.type === 'matumizi').reduce((sum, t) => sum + t.amount, 0);
+            const totalLoss = historyItems.filter((t) => t.type === 'hasara').reduce((sum, t) => sum + t.amount, 0);
+            card.innerHTML = `
+              <div class="section-title">Historia ya matumizi</div>
+              <div class="field" style="margin-top:12px;">
+                <label>Tarehe
+                  <input id="history-date" type="date" value="${selectedHistoryDate}">
+                </label>
+              </div>
+              <div class="list" style="margin-top:12px;">
+                <div class="item" style="border:1px solid var(--border);">
+                  <div>
+                    <div>Muhtasari wa tarehe</div>
+                    <div class="meta">Mapato ${fmt(totalIncome)} · Matumizi ${fmt(totalExpense)} · Hasara ${fmt(totalLoss)}</div>
+                  </div>
+                  <div class="amount negative">${fmt(totalExpense)}</div>
+                </div>
+                ${historyItems.length ? historyItems.map((t) => {
+                  const meta = TYPE_META[t.type];
+                  const categoryLabel = CATS.find((c) => c.id === t.category)?.label || '';
+                  return `
+                    <div class="item">
+                      <div>
+                        <div>${t.note || meta.label}</div>
+                        <div class="meta">${meta.label} · ${t.date}${categoryLabel ? ' · ' + categoryLabel : ''}</div>
+                      </div>
+                      <div class="amount ${meta.color}">${meta.color === 'positive' ? '+' : '-'}${fmt(t.amount)}</div>
+                    </div>`;
+                }).join('') : '<div class="empty">Hakuna data iliyohifadhiwa kwa tarehe hii.</div>'}
+              </div>
+              <div class="section-head" style="margin-top:16px;">
+                <div class="section-title">Muamala uliofutwa</div>
+              </div>
+              <div class="list">
+                ${deletedItems.length ? deletedItems.map((t) => {
+                  const meta = TYPE_META[t.type];
+                  const categoryLabel = CATS.find((c) => c.id === t.category)?.label || '';
+                  return `
+                    <div class="item">
+                      <div>
+                        <div>${t.note || meta.label}</div>
+                        <div class="meta">${meta.label} · ${t.date}${categoryLabel ? ' · ' + categoryLabel : ''} · Imefutwa</div>
+                      </div>
+                      <div class="amount ${meta.color}">${meta.color === 'positive' ? '+' : '-'}${fmt(t.amount)}</div>
+                    </div>`;
+                }).join('') : '<div class="empty">Hakuna muamala uliofutwa kwa tarehe hii.</div>'}
+              </div>`;
+            shell.appendChild(card);
+            shell.querySelector('#history-date')?.addEventListener('change', (event) => {
+              selectedHistoryDate = event.target.value || todayIso();
+              renderShell();
+            });
+          } else {
+            const card = document.createElement('div');
+            card.className = 'profile-card';
+            card.innerHTML = `
+              <div class="section-title">Wasifu</div>
+              <div class="auth-body" style="padding:0;margin-top:12px;">
+                <div class="field">
+                  <label>Jina la mtumiaji
+                    <input id="profile-user" value="${user.username}" disabled>
+                  </label>
+                </div>
+                <div class="field">
+                  <label>Jina kamili
+                    <input id="profile-name" value="${user.jina}">
+                  </label>
+                </div>
+                <div class="section-title" style="margin:16px 0 12px;font-size:14px;color:var(--accent);">Weka Bajeti ya Mwezi</div>
+                <div class="field">
+                  <label>Bajeti ya mwezi (TSh)
+                    <input id="profile-budget" type="number" value="${user.bajetiMwezi}" min="0">
+                  </label>
+                  <div style="color:var(--muted);font-size:12px;margin-top:6px;">Weka kiasi unachopanga kumeza kwa mwezi. Muamala zilizo zaidi haijaruhusiwa.</div>
+                </div>
+                <div class="field">
+                  <label>Salio la awali
+                    <input value="${fmt(user.salioAwali)}" disabled>
+                  </label>
+                </div>
+                <div class="profile-actions">
+                  <button class="primary-btn" id="save-profile">Hifadhi mabadiliko</button>
+                </div>
+              </div>`;
+            shell.appendChild(card);
+          }
+
+          shell.querySelectorAll('.nav-btn').forEach((btn) => {
+            btn.addEventListener('click', () => {
+              view = btn.getAttribute('data-view');
+              renderShell();
+            });
+          });
+          shell.querySelector('#logout')?.addEventListener('click', () => {
+            state.session = '';
+            localStorage.removeItem(SESSION_KEY);
+            render();
+          });
+          shell.querySelector('#add-transaction')?.addEventListener('click', () => {
+            openModal();
+          });
+          shell.querySelector('#set-budget')?.addEventListener('click', () => {
+            openBudgetModal();
+          });
+          shell.querySelectorAll('[data-action="edit"]').forEach((btn) => {
+            btn.addEventListener('click', () => {
+              const id = btn.getAttribute('data-id');
+              const transaction = user.transactions.find((t) => t.id === id);
+              if (!transaction) return;
+              if (!canModifyTransaction(transaction)) {
+                alert('Muamala huu hauwezi kuhaririwa baada ya masaa 2.');
+                return;
+              }
+              openModal(transaction);
+            });
+          });
+          shell.querySelectorAll('[data-action="delete"]').forEach((btn) => {
+            btn.addEventListener('click', () => {
+              const id = btn.getAttribute('data-id');
+              const transaction = user.transactions.find((t) => t.id === id);
+              if (!transaction) return;
+              if (!canModifyTransaction(transaction)) {
+                alert('Muamala huu hauwezi kufutwa baada ya masaa 2.');
+                return;
+              }
+              if (!confirm('Unataka kufuta muamala huu?')) return;
+              user.deletedTransactions = user.deletedTransactions || [];
+              user.deletedTransactions.unshift({ ...transaction, deletedAt: Date.now() });
+              user.transactions = user.transactions.filter((t) => t.id !== id);
+              saveUsers(state.users);
+              render();
+            });
+          });
+          shell.querySelector('#save-profile')?.addEventListener('click', () => {
+            const name = shell.querySelector('#profile-name').value;
+            const budget = Number(shell.querySelector('#profile-budget').value || 0);
+            const currentAllocated = Number(user.bajetiAllocated || user.bajetiMwezi || 0);
+            const currentStats = computeStats(user);
+            const availableMain = currentStats.balance + currentAllocated;
+            if (budget > availableMain) {
+              alert(`Bajeti isiyofaa. Salio lako linaloopatikana ni ${fmt(availableMain)}, lakini unataka kuweka bajeti ya ${fmt(budget)}.`);
+              return;
+            }
+            const delta = budget - currentAllocated;
+            if (delta > 0) {
+              user.salioAwali = Number(user.salioAwali || 0) - delta;
+            } else if (delta < 0) {
+              user.salioAwali = Number(user.salioAwali || 0) + Math.abs(delta);
+            }
+            user.jina = name;
+            user.bajetiMwezi = budget;
+            user.bajetiAllocated = budget;
+            saveUsers(state.users);
+            render();
+          });
+        }
+
+        renderShell();
+        return shell;
+
+        function canModifyTransaction(transaction) {
+          const createdAt = Number(transaction.createdAt || 0);
+          if (!createdAt) return true;
+          return Date.now() - createdAt <= 2 * 60 * 60 * 1000;
+        }
+
+        function checkBudgetForPayload(payload, existingTransaction = null) {
+          const allocatedBudget = user.bajetiAllocated || user.bajetiMwezi || 0;
+          if (!allocatedBudget || payload.type !== 'matumizi') {
+            return { allowed: true, remaining: allocatedBudget, used: 0, overBudget: false };
+          }
+          const transactions = (user.transactions || [])
+            .filter((t) => t.type === 'matumizi' && isInMonthWindow(t.date) && t.id !== existingTransaction?.id)
+            .map((t) => ({ ...t }));
+          const proposedTransaction = { ...payload, date: payload.date || todayIso() };
+          if (isInMonthWindow(proposedTransaction.date)) {
+            transactions.push(proposedTransaction);
+          }
+          const used = transactions.reduce((sum, t) => {
+            if (t.type === 'matumizi' && isInMonthWindow(t.date)) {
+              return sum + Number(t.amount || 0);
+            }
+            return sum;
+          }, 0);
+          const availableAfterSpend = allocatedBudget - used;
+          const remaining = Math.max(0, availableAfterSpend);
+          return { allowed: true, remaining, used, overBudget: availableAfterSpend < 0 };
+        }
+
+        function openModal(existingTransaction = null) {
+          const backdrop = document.createElement('div');
+          backdrop.className = 'modal-backdrop';
+          const editing = Boolean(existingTransaction);
+          const selectedType = existingTransaction?.type || 'matumizi';
+          backdrop.innerHTML = `
+            <div class="modal-card">
+              <div class="modal-head">
+                <div class="section-title">${editing ? 'Badilisha muamala' : 'Ongeza muamala'}</div>
+                <button class="secondary-btn" id="close-modal">×</button>
+              </div>
+              <div class="type-row">
+                <button class="type-btn ${selectedType === 'matumizi' ? 'active' : ''}" data-type="matumizi">Matumizi</button>
+                <button class="type-btn ${selectedType === 'mapato' ? 'active' : ''}" data-type="mapato">Mapato</button>
+                <button class="type-btn ${selectedType === 'hasara' ? 'active' : ''}" data-type="hasara">Hasara</button>
+              </div>
+              <div class="auth-body" style="padding:0;">
+                <div class="field">
+                  <label>Kiasi (TSh)
+                    <input id="tx-amount" type="number" min="1" step="1" required value="${existingTransaction?.amount || ''}">
+                  </label>
+                </div>
+                <div class="field" id="category-wrap" style="display:${selectedType === 'matumizi' ? 'block' : 'none'}">
+                  <label>Kundi
+                    <select id="tx-category">
+                      ${CATS.map((c) => `<option value="${c.id}" ${existingTransaction?.category === c.id ? 'selected' : ''}>${c.label}</option>`).join('')}
+                    </select>
+                  </label>
+                </div>
+                <div class="field">
+                  <label>Maelezo (hiari)
+                    <input id="tx-note" placeholder="mf. Chakula cha mchana" value="${existingTransaction?.note || ''}">
+                  </label>
+                </div>
+                <div class="field">
+                  <label>Tarehe
+                    <input id="tx-date" type="date" value="${existingTransaction?.date || todayIso()}">
+                  </label>
+                </div>
+                <div class="modal-actions">
+                  <button class="secondary-btn" id="cancel-modal">Ghairi</button>
+                  <button class="primary-btn" id="save-modal">Hifadhi</button>
+                </div>
+              </div>
+            </div>`;
+          document.body.appendChild(backdrop);
+          const typeButtons = backdrop.querySelectorAll('.type-btn');
+          const categoryWrap = backdrop.querySelector('#category-wrap');
+          let type = selectedType;
+          typeButtons.forEach((btn) => {
+            btn.addEventListener('click', () => {
+              typeButtons.forEach((b) => b.classList.remove('active'));
+              btn.classList.add('active');
+              type = btn.getAttribute('data-type');
+              categoryWrap.style.display = type === 'matumizi' ? 'block' : 'none';
+            });
+          });
+          backdrop.querySelector('#close-modal')?.addEventListener('click', () => backdrop.remove());
+          backdrop.querySelector('#cancel-modal')?.addEventListener('click', () => backdrop.remove());
+          backdrop.querySelector('#save-modal')?.addEventListener('click', () => {
+            const amount = Number(backdrop.querySelector('#tx-amount').value || 0);
+            if (!amount || amount <= 0) return;
+            const payload = {
+              type,
+              amount,
+              category: type === 'matumizi' ? backdrop.querySelector('#tx-category').value : null,
+              note: backdrop.querySelector('#tx-note').value,
+              date: backdrop.querySelector('#tx-date').value || todayIso()
+            };
+            const budgetCheck = checkBudgetForPayload(payload, editing ? existingTransaction : null);
+            // Allow expenses that exceed the budget if overall balance can still cover them.
+            // Budgeted amount is consumed first; any extra comes from the main balance.
+            if ((payload.type === 'matumizi' || payload.type === 'hasara') && payload.amount > 0) {
+              const updatedTransactions = editing
+                ? user.transactions.filter((t) => t.id !== existingTransaction.id).concat({ ...existingTransaction, ...payload, id: existingTransaction.id })
+                : user.transactions.concat({ id: 'temp', ...payload });
+              const tempUser = { ...user, transactions: updatedTransactions };
+              const newStats = computeStats(tempUser);
+              if (newStats.balance < 0) {
+                alert(`Salio haijatosha kwa muamala huu. Salio lako sasa: ${fmt(computeStats(user).balance)}, lakini muamala huu ungefanya salio kuwa hasi.`);
+                return;
+              }
+            }
+            if (editing && existingTransaction) {
+              Object.assign(existingTransaction, payload);
+              existingTransaction.updatedAt = Date.now();
+            } else {
+              user.transactions.unshift({
+                id: uid(),
+                createdAt: Date.now(),
+                ...payload
+              });
+            }
+            saveUsers(state.users);
+            backdrop.remove();
+            render();
+          });
+        }
+
+        function openBudgetModal() {
+          const currentStats = computeStats(user);
+          const backdrop = document.createElement('div');
+          backdrop.className = 'modal-backdrop';
+          backdrop.innerHTML = `
+            <div class="modal-card">
+              <div class="modal-head">
+                <div class="section-title">Weka Bajeti ya Mwezi</div>
+                <button class="secondary-btn" id="close-budget-modal">×</button>
+              </div>
+              <div class="auth-body" style="padding:0;">
+                <div class="field">
+                  <label>Kiasi cha kuhamisha kwenye bajeti (TSh)
+                    <input id="budget-amount" type="number" min="1" step="1000" value="" placeholder="Mf. 500000">
+                  </label>
+                  <div style="color:var(--muted);font-size:12px;margin-top:6px;">Salio lako sasa: ${fmt(currentStats.balance)}. Kiasi kitachukuliwa kutoka salio na kuongezwa kwenye bajeti ya mwezi.</div>
+                </div>
+                <div class="modal-actions">
+                  <button class="secondary-btn" id="cancel-budget-modal">Ghairi</button>
+                  <button class="primary-btn" id="save-budget-modal">Weka Bajeti</button>
+                </div>
+              </div>
+            </div>`;
+          document.body.appendChild(backdrop);
+          backdrop.querySelector('#close-budget-modal')?.addEventListener('click', () => backdrop.remove());
+          backdrop.querySelector('#cancel-budget-modal')?.addEventListener('click', () => backdrop.remove());
+          backdrop.querySelector('#save-budget-modal')?.addEventListener('click', () => {
+            const transferAmount = Number(backdrop.querySelector('#budget-amount').value || 0);
+            if (!transferAmount || transferAmount <= 0) {
+              alert('Tafadhali ingiza kiasi halali cha kuhamisha kwenye bajeti.');
+              return;
+            }
+            const currentStats = computeStats(user);
+            if (transferAmount > currentStats.balance) {
+              alert(`Salio lako halitoshi. Salio lako sasa ni ${fmt(currentStats.balance)}, lakini unataka kuhamisha ${fmt(transferAmount)}.`);
+              return;
+            }
+            const currentAllocated = Number(user.bajetiAllocated || user.bajetiMwezi || 0);
+            user.salioAwali = Number(user.salioAwali || 0) - transferAmount;
+            user.bajetiAllocated = currentAllocated + transferAmount;
+            user.bajetiMwezi = currentAllocated + transferAmount;
+            saveUsers(state.users);
+            backdrop.remove();
+            render();
+          });
+        }
+      }
+
+      function formatMonthLabel(monthKeyValue) {
+        if (!monthKeyValue) return '';
+        const [year, month] = monthKeyValue.split('-');
+        const date = new Date(Number(year), Number(month) - 1, 1);
+        return date.toLocaleString('sw', { month: 'long', year: 'numeric' }).replace(/^./, (char) => char.toUpperCase());
+      }
+
+      function getMonthWindowBounds() {
+        const now = new Date();
+        const start = new Date(now.getFullYear(), now.getMonth(), 1);
+        const end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+        return { start, end };
+      }
+
+      function isInMonthWindow(dateValue) {
+        if (!dateValue) return false;
+        const { start, end } = getMonthWindowBounds();
+        const txDate = new Date(`${dateValue}T00:00:00`);
+        if (Number.isNaN(txDate.getTime())) return false;
+        return txDate >= start && txDate <= end;
+      }
+
+      function buildMonthSummary(user, month) {
+        let income = 0;
+        let expense = 0;
+        let loss = 0;
+        for (const t of user.transactions) {
+          if (monthKey(t.date) !== month) continue;
+          if (t.type === 'mapato') income += t.amount;
+          if (t.type === 'matumizi') expense += t.amount;
+          if (t.type === 'hasara') loss += t.amount;
+        }
+        return { month, label: formatMonthLabel(month), income, expense, loss };
+      }
+
+      function syncMonthlyRecords(user) {
+        const now = todayIso();
+        const curMonth = monthKey(now);
+        const months = new Set([curMonth]);
+        (user.monthlyRecords ? Object.keys(user.monthlyRecords) : []).forEach((month) => months.add(month));
+        user.transactions.forEach((t) => {
+          const month = monthKey(t.date);
+          if (month) months.add(month);
+        });
+        const records = Array.from(months).filter(Boolean).map((month) => buildMonthSummary(user, month));
+        records.sort((a, b) => b.month.localeCompare(a.month));
+        user.monthlyRecords = Object.fromEntries(records.map((record) => [record.month, record]));
+        return records;
+      }
+
+      function computeStats(user) {
+        const now = todayIso();
+        const curMonth = monthKey(now);
+        let expenseMonth = 0;
+        let expenseToday = 0;
+        let lossMonth = 0;
+        let incomeMonth = 0;
+        for (const t of user.transactions) {
+          const inWindow = isInMonthWindow(t.date);
+          if (t.type === 'mapato' && inWindow) incomeMonth += t.amount;
+          if (t.type === 'matumizi' && inWindow) expenseMonth += t.amount;
+          if (t.type === 'matumizi' && t.date === now) expenseToday += t.amount;
+          if (t.type === 'hasara' && inWindow) lossMonth += t.amount;
+        }
+        const allocated = Number(user.bajetiAllocated || user.bajetiMwezi || 0);
+        const budgetUsed = Math.min(allocated, Math.max(0, expenseMonth));
+        const budgetRemaining = Math.max(0, allocated - budgetUsed);
+        const outOfBudgetExpense = Math.max(0, expenseMonth - budgetUsed);
+        const balance = user.salioAwali + incomeMonth - lossMonth - outOfBudgetExpense;
+        const monthlyRecords = syncMonthlyRecords(user).filter((record) => record.month !== curMonth);
+        const currentMonthLabel = formatMonthLabel(curMonth);
+        return { balance, expenseToday, expenseMonth, lossMonth, budgetUsed, budgetRemaining, monthlyRecords, currentMonthLabel, allocatedBudget: allocated };
+      }
+
+      App();
+    </script>
+  </body>
+</html>
