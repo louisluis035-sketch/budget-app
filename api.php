@@ -1,6 +1,6 @@
 <?php
 // api.php — Mfumo wa Wallet Halisi (Live Balances) wenye MySQL na PDO.
-// Toleo lenye Ulinzi Mkali wa Bajeti (Strict Budget Isolation Mode).
+// Toleo lililorekebishwa: Kuhamisha bajeti sasa kunaongeza dari la mwezi kiotomatiki.
 
 declare(strict_types=1);
 require __DIR__ . '/bootstrap.php';
@@ -285,17 +285,14 @@ switch ($action) {
             $tempBalance = $liveBalance;
             $tempBudget = $liveBudget;
 
-            // Rollback ya muamala wa zamani kwa majaribio
             if ($oldType === 'mapato') $tempBalance -= $oldAmount;
             if ($oldType === 'hasara') $tempBalance += $oldAmount;
             if ($oldType === 'matumizi') $tempBudget += $oldAmount;
 
-            // Weka kiasi kipya kwa majaribio
             if ($type === 'mapato') $tempBalance += $amount;
             if ($type === 'hasara') $tempBalance -= $amount;
             if ($type === 'matumizi') $tempBudget -= $amount;
 
-            // Ukaguzi wa kihasibu wakati wa KUHARIRI (Edit Mode)
             if ($tempBalance < 0) {
                 respond(['error' => 'Mabadiliko yamekataliwa! Salio lako kuu halitoshi.'], 422);
             }
@@ -303,7 +300,6 @@ switch ($action) {
                 respond(['error' => 'Mabadiliko yamekataliwa! Bajeti yako haitatosha. Inabaki: ' . number_format($liveBudget + $oldAmount)], 422);
             }
             
-            // Kuzuia kuhariri kusiache bajeti iliyobaki ikiwa kubwa kuliko target
             if ($tempBudget > $targetBudget) {
                 $tempBudget = $targetBudget;
             }
@@ -311,7 +307,6 @@ switch ($action) {
             $liveBalance = $tempBalance;
             $liveBudget = $tempBudget;
         } else {
-            // MASHARTI MAPYA KABISA KWA MUAMALA MPYA (New Transaction Mode)
             if ($type === 'matumizi') {
                 if ($liveBudget <= 0) {
                     respond([
@@ -326,12 +321,10 @@ switch ($action) {
                 }
             }
 
-            // Ukaguzi wa Hasara dhidi ya Salio Kuu pekee
             if ($type === 'hasara' && $amount > $liveBalance) {
                 respond(['error' => 'Muamala umekataliwa! Salio kuu halitoshi kufidia hasara hii.'], 422);
             }
 
-            // Mabadiliko halisi ya fedha (MATUMIZI HAYAGUSI SALIO KUU)
             if ($type === 'mapato') {
                 $liveBalance += $amount;
             }
@@ -384,7 +377,6 @@ switch ($action) {
         if ($tx['type'] === 'mapato') $liveBalance -= $amount; 
         if ($tx['type'] === 'hasara') $liveBalance += $amount; 
         
-        // Kufuta matumizi hakuwezi kupandisha bajeti iliyobaki juu ya target ya mwezi
         if ($tx['type'] === 'matumizi') {
             $liveBudget = min($liveBudget + $amount, (float) $userRow['bajeti_mwezi']);
         }
@@ -453,24 +445,18 @@ switch ($action) {
         $liveBalance = (float) $userRow['salio_awali'];
         $liveBudget = (float) $userRow['bajeti_allocated'];
         $targetBudget = (float) $userRow['bajeti_mwezi'];
-        
-        // Kukataa transfer kama itazidi dari (target ya bajeti ya mwezi)
-        if (($liveBudget + $transferAmount) > $targetBudget) {
-            $maxAllowedTransfer = max(0.0, $targetBudget - $liveBudget);
-            respond([
-                'error' => 'Imeshindikana! Kiasi unachotaka kuhamisha kitazidi malengo ya bajeti ya mwezi. Unaweza kuhamisha kiwango cha mwisho cha hadi ' . number_format($maxAllowedTransfer) . ' tu.'
-            ], 422);
-        }
 
         if ($liveBalance <= 0 || $transferAmount > $liveBalance) {
             respond(['error' => 'Imeshindikana! Salio lako kuu la sasa (' . number_format($liveBalance) . ') halitoshi kuhamisha ' . number_format($transferAmount) . ' kwenda kwenye bajeti.'], 422);
         }
         
-        $newBudget = $liveBudget + $transferAmount;
+        // REKEBISHO: Pesa ikihamishwa, inaongeza bajeti iliyobaki na dari kuu la mwezi kwa pamoja!
+        $newBudgetAllocated = $liveBudget + $transferAmount;
+        $newBudgetMwezi = $targetBudget + $transferAmount; 
         $newBalance = $liveBalance - $transferAmount;
         
-        $stmt = $pdo->prepare('UPDATE users SET bajeti_allocated=?, salio_awali=? WHERE id=?');
-        $stmt->execute([$newBudget, $newBalance, $userId]);
+        $stmt = $pdo->prepare('UPDATE users SET bajeti_allocated=?, bajeti_mwezi=?, salio_awali=? WHERE id=?');
+        $stmt->execute([$newBudgetAllocated, $newBudgetMwezi, $newBalance, $userId]);
         respond(fullState($pdo, $userId));
     }
 
